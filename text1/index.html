@@ -1,0 +1,1401 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>零碳园区协控平台 - 综合能源管理系统</title>
+    <!-- 引入外部资源 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3@7.8.5/dist/d3.min.js"></script>
+    
+    <!-- Tailwind CSS 配置 -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#00B42A',
+                        warning: '#FF7D00',
+                        danger: '#F53F3F',
+                        info: '#86909C',
+                        dark: '#1D2129',
+                        'dark-100': '#4E5969',
+                        'dark-200': '#86909C',
+                        'light-100': '#F2F3F5',
+                        'light-200': '#E5E6EB',
+                        'cyberpunk-blue': '#00F0FF',
+                        'cyberpunk-purple': '#FF00FF',
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                    boxShadow: {
+                        'cyber': '0 0 15px rgba(0, 240, 255, 0.5)',
+                        'neon': '0 0 10px rgba(0, 240, 255, 0.7), 0 0 20px rgba(0, 240, 255, 0.5)',
+                    }
+                },
+            }
+        }
+    </script>
+    
+    <!-- 自定义工具类 -->
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .text-shadow-neon {
+                text-shadow: 0 0 5px rgba(0, 240, 255, 0.7);
+            }
+            .border-glow {
+                box-shadow: 0 0 5px rgba(0, 240, 255, 0.7);
+            }
+            .animate-pulse-slow {
+                animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+            }
+            .backdrop-blur-xs {
+                backdrop-filter: blur(2px);
+            }
+        }
+    </style>
+    
+    <!-- 引入样式文件 -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="bg-dark text-white font-sans min-h-screen">
+    <!-- 页面加载动画 -->
+    <div id="loader" class="fixed inset-0 z-50 flex items-center justify-center bg-dark">
+        <div class="flex flex-col items-center">
+            <div class="w-20 h-20 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+            <p class="mt-4 text-primary text-lg">系统加载中...</p>
+        </div>
+    </div>
+
+    <!-- 主容器 -->
+    <div id="app" class="hidden">
+        <!-- 顶部导航栏 -->
+        <header class="bg-dark-100/80 backdrop-blur-xs fixed top-0 left-0 right-0 z-40 border-b border-cyberpunk-blue/30 transition-all duration-300">
+            <div class="container mx-auto px-4 py-3 flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <div class="text-primary text-2xl animate-pulse-slow">
+                        <i class="fa fa-cogs"></i>
+                    </div>
+                    <h1 class="text-xl font-bold text-shadow-neon">零碳园区协控平台</h1>
+                </div>
+                
+                <div class="flex items-center space-x-6">
+                    <div class="hidden md:flex items-center space-x-4">
+                        <span class="text-dark-200">当前时间：</span>
+                        <span id="current-time" class="text-white"></span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <span class="text-cyberpunk-blue"><i class="fa fa-tachometer"></i></span>
+                        <span>系统状态：</span>
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-secondary/20 text-secondary">
+                            <span class="status-indicator mr-1"></span>正常运行
+                        </span>
+                    </div>
+                    <div class="hidden md:block">
+                        <button class="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-lg transition-colors flex items-center">
+                            <i class="fa fa-refresh mr-2"></i>
+                            <span>刷新数据</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+        
+        <!-- 侧边导航栏（仅在大屏幕显示） -->
+        <nav class="hidden lg:block fixed left-0 top-16 bottom-0 w-16 bg-dark-100/80 backdrop-blur-xs border-r border-cyberpunk-blue/30 z-30">
+            <div class="flex flex-col items-center py-6 space-y-8">
+                <a href="#" class="nav-item active flex flex-col items-center space-y-2 p-2">
+                    <i class="fa fa-home text-xl text-primary"></i>
+                    <span class="text-xs text-primary">首页</span>
+                </a>
+                <a href="#" class="nav-item flex flex-col items-center space-y-2 p-2">
+                    <i class="fa fa-line-chart text-xl text-dark-200"></i>
+                    <span class="text-xs text-dark-200">数据分析</span>
+                </a>
+                <a href="#" class="nav-item flex flex-col items-center space-y-2 p-2">
+                    <i class="fa fa-cogs text-xl text-dark-200"></i>
+                    <span class="text-xs text-dark-200">设备管理</span>
+                </a>
+                <a href="#" class="nav-item flex flex-col items-center space-y-2 p-2">
+                    <i class="fa fa-brain text-xl text-dark-200"></i>
+                    <span class="text-xs text-dark-200">AI模型</span>
+                </a>
+                <a href="#" class="nav-item flex flex-col items-center space-y-2 p-2">
+                    <i class="fa fa-file-text text-xl text-dark-200"></i>
+                    <span class="text-xs text-dark-200">报表</span>
+                </a>
+                <a href="#" class="nav-item flex flex-col items-center space-y-2 p-2">
+                    <i class="fa fa-cog text-xl text-dark-200"></i>
+                    <span class="text-xs text-dark-200">设置</span>
+                </a>
+            </div>
+        </nav>
+
+        <!-- 主内容区域 -->
+        <main class="container mx-auto pt-20 pb-10 px-4 lg:pl-24 transition-all duration-300">
+            <!-- 系统概览卡片 -->
+            <section class="mb-8">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <!-- 能源生产指标 -->
+                    <div class="bg-dark-100/50 border border-cyberpunk-blue/30 rounded-lg p-4 transition-all hover:shadow-cyber glass-effect">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-dark-200 text-sm">总能源产出</p>
+                                <h3 class="text-2xl font-bold mt-1">125.8 <span class="text-lg">MWh</span></h3>
+                            </div>
+                            <div class="bg-primary/20 p-2 rounded-lg">
+                                <i class="fa fa-bolt text-primary text-xl"></i>
+                            </div>
+                        </div>
+                        <div class="flex items-center mt-4">
+                            <span class="text-secondary flex items-center text-sm">
+                                <i class="fa fa-arrow-up mr-1"></i> 8.2%
+                            </span>
+                            <span class="text-dark-200 text-sm ml-2">相比昨日</span>
+                        </div>
+                    </div>
+                    
+                    <!-- 碳排放指标 -->
+                    <div class="bg-dark-100/50 border border-cyberpunk-blue/30 rounded-lg p-4 transition-all hover:shadow-cyber glass-effect">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-dark-200 text-sm">碳排放量</p>
+                                <h3 class="text-2xl font-bold mt-1">4.2 <span class="text-lg">tCO₂</span></h3>
+                            </div>
+                            <div class="bg-warning/20 p-2 rounded-lg">
+                                <i class="fa fa-area-chart text-warning text-xl"></i>
+                            </div>
+                        </div>
+                        <div class="flex items-center mt-4">
+                            <span class="text-danger flex items-center text-sm">
+                                <i class="fa fa-arrow-up mr-1"></i> 2.1%
+                            </span>
+                            <span class="text-dark-200 text-sm ml-2">相比昨日</span>
+                        </div>
+                    </div>
+                    
+                    <!-- 系统效率指标 -->
+                    <div class="bg-dark-100/50 border border-cyberpunk-blue/30 rounded-lg p-4 transition-all hover:shadow-cyber glass-effect">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-dark-200 text-sm">系统效率</p>
+                                <h3 class="text-2xl font-bold mt-1">87.5 <span class="text-lg">%</span></h3>
+                            </div>
+                            <div class="bg-secondary/20 p-2 rounded-lg">
+                                <i class="fa fa-percent text-secondary text-xl"></i>
+                            </div>
+                        </div>
+                        <div class="flex items-center mt-4">
+                            <span class="text-secondary flex items-center text-sm">
+                                <i class="fa fa-arrow-up mr-1"></i> 3.7%
+                            </span>
+                            <span class="text-dark-200 text-sm ml-2">相比昨日</span>
+                        </div>
+                    </div>
+                    
+                    <!-- AI预测准确率 -->
+                    <div class="bg-dark-100/50 border border-cyberpunk-blue/30 rounded-lg p-4 transition-all hover:shadow-cyber glass-effect">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-dark-200 text-sm">AI预测准确率</p>
+                                <h3 class="text-2xl font-bold mt-1">92.8 <span class="text-lg">%</span></h3>
+                            </div>
+                            <div class="bg-cyberpunk-purple/20 p-2 rounded-lg">
+                                <i class="fa fa-brain text-cyberpunk-purple text-xl"></i>
+                            </div>
+                        </div>
+                        <div class="flex items-center mt-4">
+                            <span class="text-secondary flex items-center text-sm">
+                                <i class="fa fa-arrow-up mr-1"></i> 1.5%
+                            </span>
+                            <span class="text-dark-200 text-sm ml-2">本周平均值</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 系统架构图 -->
+            <section class="mb-8">
+                <div class="bg-dark-100/50 border border-cyberpunk-blue/30 rounded-lg p-4 glass-effect">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-bold text-shadow-neon">系统架构图</h2>
+                        <div class="flex space-x-2">
+                            <button class="bg-primary/20 hover:bg-primary/30 text-primary px-3 py-1 rounded text-sm transition-colors">
+                                <i class="fa fa-refresh mr-1"></i>刷新
+                            </button>
+                            <button class="bg-dark-200/30 hover:bg-dark-200/50 text-white px-3 py-1 rounded text-sm transition-colors">
+                                <i class="fa fa-expand mr-1"></i>全屏
+                            </button>
+                        </div>
+                    </div>
+                    <div id="system-architecture" class="w-full h-[550px] bg-dark-100/30 rounded-lg border border-cyberpunk-blue/20 overflow-hidden grid-bg neon-border">
+                    <!-- 系统架构图将通过D3.js动态生成 -->
+                    <div class="absolute top-4 left-4 bg-black bg-opacity-50 px-4 py-2 rounded-lg text-cyan-400 text-xl font-bold">
+                        零碳园区协控平台 - 系统架构
+                    </div>
+                    <div class="flex items-center justify-center h-full">
+                        <div class="text-center">
+                            <i class="fa fa-cog fa-spin text-primary text-4xl mb-4"></i>
+                            <p class="text-dark-200">架构图加载中...</p>
+                        </div>
+                    </div>
+                </div>
+                </div>
+            </section>
+
+            <!-- 多列布局：左侧监控数据，右侧控制面板 -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- 左侧：性能监控和数据分析 -->
+                <div class="lg:col-span-2 space-y-6">
+                    <!-- 各部件性能监控 -->
+                    <div class="bg-dark-100/50 border border-cyberpunk-blue/30 rounded-lg p-4 glass-effect">
+                        <h2 class="text-xl font-bold mb-4 text-shadow-neon">各部件性能监控</h2>
+                        
+                        <!-- 关键指标概览 -->
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+                            <div class="bg-dark-100/40 border border-cyberpunk-blue/20 rounded-lg p-3 flex flex-col">
+                                <span class="text-xs text-dark-200 mb-1">系统总效率</span>
+                                <span class="text-lg font-bold text-primary">89.7%</span>
+                                <span class="text-xs text-green-500 mt-auto"><i class="fa fa-arrow-up mr-1"></i>2.3%</span>
+                            </div>
+                            <div class="bg-dark-100/40 border border-cyberpunk-blue/20 rounded-lg p-3 flex flex-col">
+                                <span class="text-xs text-dark-200 mb-1">实时能耗</span>
+                                <span class="text-lg font-bold text-cyberpunk-blue">15.6 MW</span>
+                                <span class="text-xs text-red-500 mt-auto"><i class="fa fa-arrow-up mr-1"></i>1.2%</span>
+                            </div>
+                            <div class="bg-dark-100/40 border border-cyberpunk-blue/20 rounded-lg p-3 flex flex-col">
+                                <span class="text-xs text-dark-200 mb-1">碳排放强度</span>
+                                <span class="text-lg font-bold text-secondary">0.21 kg/kWh</span>
+                                <span class="text-xs text-green-500 mt-auto"><i class="fa fa-arrow-down mr-1"></i>4.5%</span>
+                            </div>
+                            <div class="bg-dark-100/40 border border-cyberpunk-blue/20 rounded-lg p-3 flex flex-col">
+                                <span class="text-xs text-dark-200 mb-1">设备健康度</span>
+                                <span class="text-lg font-bold text-green-400">94.3%</span>
+                                <span class="text-xs text-green-500 mt-auto"><i class="fa fa-arrow-up mr-1"></i>0.8%</span>
+                            </div>
+                        </div>
+                        
+                        <!-- 详细监控卡片 -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            <!-- 压缩机性能监控 -->
+                            <div class="bg-dark-100/30 border border-cyberpunk-blue/20 rounded-lg p-3 neon-border">
+                                <h3 class="font-medium text-sm text-dark-200 mb-2 flex justify-between items-center">
+                                    <span>压缩机性能</span>
+                                    <span class="text-xs px-2 py-0.5 rounded-full bg-green-400/20 text-green-400">正常</span>
+                                </h3>
+                                <div class="flex justify-between items-center mb-2">
+                                    <span>运行效率</span>
+                                    <span class="text-primary font-medium">94.2%</span>
+                                </div>
+                                <div class="w-full bg-dark-100 h-2 rounded-full">
+                                    <div class="bg-primary h-2 rounded-full" style="width: 94.2%"></div>
+                                </div>
+                                <div class="grid grid-cols-2 gap-2 mt-4">
+                                    <div class="bg-dark-100/50 p-2 rounded">
+                                        <p class="text-xs text-dark-200">排气压力</p>
+                                        <p class="text-sm font-medium">25.5 MPa</p>
+                                    </div>
+                                    <div class="bg-dark-100/50 p-2 rounded">
+                                        <p class="text-xs text-dark-200">温度</p>
+                                        <p class="text-sm font-medium">85.3 °C</p>
+                                    </div>
+                                    <div class="bg-dark-100/50 p-2 rounded">
+                                        <p class="text-xs text-dark-200">振动值</p>
+                                        <p class="text-sm font-medium">2.1 mm/s</p>
+                                    </div>
+                                    <div class="bg-dark-100/50 p-2 rounded">
+                                        <p class="text-xs text-dark-200">运行时长</p>
+                                        <p class="text-sm font-medium">2463h</p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- 燃料电池性能监控 -->
+                            <div class="bg-dark-100/30 border border-cyberpunk-blue/20 rounded-lg p-3 neon-border">
+                                <h3 class="font-medium text-sm text-dark-200 mb-2 flex justify-between items-center">
+                                    <span>燃料电池性能</span>
+                                    <span class="text-xs px-2 py-0.5 rounded-full bg-green-400/20 text-green-400">正常</span>
+                                </h3>
+                                <div class="flex justify-between items-center mb-2">
+                                    <span>发电效率</span>
+                                    <span class="text-primary font-medium">68.7%</span>
+                                </div>
+                                <div class="w-full bg-dark-100 h-2 rounded-full">
+                                    <div class="bg-primary h-2 rounded-full" style="width: 68.7%"></div>
+                                </div>
+                                <div class="grid grid-cols-2 gap-2 mt-4">
+                                    <div class="bg-dark-100/50 p-2 rounded">
+                                        <p class="text-xs text-dark-200">输出功率</p>
+                                        <p class="text-sm font-medium">2.4 MW</p>
+                                    </div>
+                                    <div class="bg-dark-100/50 p-2 rounded">
+                                        <p class="text-xs text-dark-200">温度</p>
+                                        <p class="text-sm font-medium">750 °C</p>
+                                    </div>
+                                    <div class="bg-dark-100/50 p-2 rounded">
+                                        <p class="text-xs text-dark-200">燃料利用率</p>
+                                        <p class="text-sm font-medium">89.3%</p>
+                                    </div>
+                                    <div class="bg-dark-100/50 p-2 rounded">
+                                        <p class="text-xs text-dark-200">累计发电</p>
+                                        <p class="text-sm font-medium">2456 MWh</p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- 风电系统监控 -->
+                            <div class="bg-dark-100/30 border border-cyberpunk-blue/20 rounded-lg p-3 neon-border">
+                                <h3 class="font-medium text-sm text-dark-200 mb-2 flex justify-between items-center">
+                                    <span>风电系统</span>
+                                    <span class="text-xs px-2 py-0.5 rounded-full bg-green-400/20 text-green-400">正常</span>
+                                </h3>
+                                <div class="flex justify-between items-center mb-2">
+                                    <span>发电功率</span>
+                                    <span class="text-primary font-medium">5.8 MW</span>
+                                </div>
+                                <div class="w-full bg-dark-100 h-2 rounded-full">
+                                    <div class="bg-primary h-2 rounded-full" style="width: 75%"></div>
+                                </div>
+                                <div class="grid grid-cols-2 gap-2 mt-4">
+                                    <div class="bg-dark-100/50 p-2 rounded">
+                                        <p class="text-xs text-dark-200">风速</p>
+                                        <p class="text-sm font-medium">8.2 m/s</p>
+                                    </div>
+                                    <div class="bg-dark-100/50 p-2 rounded">
+                                        <p class="text-xs text-dark-200">叶片角度</p>
+                                        <p class="text-sm font-medium">35°</p>
+                                    </div>
+                                    <div class="bg-dark-100/50 p-2 rounded">
+                                        <p class="text-xs text-dark-200">可用风机</p>
+                                        <p class="text-sm font-medium">12/15</p>
+                                    </div>
+                                    <div class="bg-dark-100/50 p-2 rounded">
+                                        <p class="text-xs text-dark-200">发电效率</p>
+                                        <p class="text-sm font-medium">83.5%</p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- 光伏系统监控 -->
+                            <div class="bg-dark-100/30 border border-cyberpunk-blue/20 rounded-lg p-3 neon-border">
+                                <h3 class="font-medium text-sm text-dark-200 mb-2 flex justify-between items-center">
+                                    <span>光伏系统</span>
+                                    <span class="text-xs px-2 py-0.5 rounded-full bg-green-400/20 text-green-400">正常</span>
+                                </h3>
+                                <div class="flex justify-between items-center mb-2">
+                                    <span>发电功率</span>
+                                    <span class="text-primary font-medium">3.2 MW</span>
+                                </div>
+                                <div class="w-full bg-dark-100 h-2 rounded-full">
+                                    <div class="bg-primary h-2 rounded-full" style="width: 60%"></div>
+                                </div>
+                                <div class="grid grid-cols-2 gap-2 mt-4">
+                                    <div class="bg-dark-100/50 p-2 rounded">
+                                        <p class="text-xs text-dark-200">光照强度</p>
+                                        <p class="text-sm font-medium">850 W/m²</p>
+                                    </div>
+                                    <div class="bg-dark-100/50 p-2 rounded">
+                                        <p class="text-xs text-dark-200">面板温度</p>
+                                        <p class="text-sm font-medium">52 °C</p>
+                                    </div>
+                                    <div class="bg-dark-100/50 p-2 rounded">
+                                        <p class="text-xs text-dark-200">清洁度</p>
+                                        <p class="text-sm font-medium">92%</p>
+                                    </div>
+                                    <div class="bg-dark-100/50 p-2 rounded">
+                                        <p class="text-xs text-dark-200">发电效率</p>
+                                        <p class="text-sm font-medium">18.7%</p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- 储能系统监控 -->
+                            <div class="bg-dark-100/30 border border-cyberpunk-blue/20 rounded-lg p-3 neon-border">
+                                <h3 class="font-medium text-sm text-dark-200 mb-2 flex justify-between items-center">
+                                    <span>储能系统</span>
+                                    <span class="text-xs px-2 py-0.5 rounded-full bg-yellow-400/20 text-yellow-400">注意</span>
+                                </h3>
+                                <div class="flex justify-between items-center mb-2">
+                                    <span>荷电状态</span>
+                                    <span class="text-yellow-400 font-medium">42.5%</span>
+                                </div>
+                                <div class="w-full bg-dark-100 h-2 rounded-full">
+                                    <div class="bg-yellow-400 h-2 rounded-full" style="width: 42.5%"></div>
+                                </div>
+                                <div class="grid grid-cols-2 gap-2 mt-4">
+                                    <div class="bg-dark-100/50 p-2 rounded">
+                                        <p class="text-xs text-dark-200">充电功率</p>
+                                        <p class="text-sm font-medium">5.2 MW</p>
+                                    </div>
+                                    <div class="bg-dark-100/50 p-2 rounded">
+                                        <p class="text-xs text-dark-200">系统温度</p>
+                                        <p class="text-sm font-medium">38°C</p>
+                                    </div>
+                                    <div class="bg-dark-100/50 p-2 rounded">
+                                        <p class="text-xs text-dark-200">预计充满</p>
+                                        <p class="text-sm font-medium">3.5h</p>
+                                    </div>
+                                    <div class="bg-dark-100/50 p-2 rounded">
+                                        <p class="text-xs text-dark-200">容量预警</p>
+                                        <p class="text-sm font-medium text-yellow-400">偏低</p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- 数据中心监控 -->
+                            <div class="bg-dark-100/30 border border-cyberpunk-blue/20 rounded-lg p-3 neon-border">
+                                <h3 class="font-medium text-sm text-dark-200 mb-2 flex justify-between items-center">
+                                    <span>数据中心</span>
+                                    <span class="text-xs px-2 py-0.5 rounded-full bg-green-400/20 text-green-400">正常</span>
+                                </h3>
+                                <div class="flex justify-between items-center mb-2">
+                                    <span>负载率</span>
+                                    <span class="text-primary font-medium">68.3%</span>
+                                </div>
+                                <div class="w-full bg-dark-100 h-2 rounded-full">
+                                    <div class="bg-primary h-2 rounded-full" style="width: 68.3%"></div>
+                                </div>
+                                <div class="grid grid-cols-2 gap-2 mt-4">
+                                    <div class="bg-dark-100/50 p-2 rounded">
+                                        <p class="text-xs text-dark-200">机房温度</p>
+                                        <p class="text-sm font-medium">22.5°C</p>
+                                    </div>
+                                    <div class="bg-dark-100/50 p-2 rounded">
+                                        <p class="text-xs text-dark-200">PUE值</p>
+                                        <p class="text-sm font-medium">1.24</p>
+                                    </div>
+                                    <div class="bg-dark-100/50 p-2 rounded">
+                                        <p class="text-xs text-dark-200">算力利用率</p>
+                                        <p class="text-sm font-medium">72.5%</p>
+                                    </div>
+                                    <div class="bg-dark-100/50 p-2 rounded">
+                                        <p class="text-xs text-dark-200">余热回收</p>
+                                        <p class="text-sm font-medium">94.2%</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 大数据统计图表 -->
+                    <div class="bg-dark-100/50 border border-cyberpunk-blue/30 rounded-lg p-4 glass-effect">
+                        <!-- 标题和控制区 -->
+                        <div class="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-5">
+                            <h2 class="text-xl font-bold text-shadow-neon">大数据统计分析</h2>
+                            
+                            <div class="flex flex-wrap gap-3">
+                                <!-- 时间范围选择 -->
+                                <div class="flex space-x-1 bg-dark-100/50 rounded-lg p-1">
+                                    <button class="bg-primary text-white px-3 py-1 rounded-md text-sm transition-colors">
+                                        今日
+                                    </button>
+                                    <button class="hover:bg-dark-200/50 text-white px-3 py-1 rounded-md text-sm transition-colors">
+                                        本周
+                                    </button>
+                                    <button class="hover:bg-dark-200/50 text-white px-3 py-1 rounded-md text-sm transition-colors">
+                                        本月
+                                    </button>
+                                    <button class="hover:bg-dark-200/50 text-white px-3 py-1 rounded-md text-sm transition-colors">
+                                        全年
+                                    </button>
+                                </div>
+                                
+                                <!-- 数据筛选器 -->
+                                <div class="relative">
+                                    <select class="bg-dark-100/50 text-white border border-cyberpunk-blue/20 rounded-md px-3 py-1 text-sm appearance-none cursor-pointer pr-8">
+                                        <option>全部数据</option>
+                                        <option>上游供能</option>
+                                        <option>储气库</option>
+                                        <option>数据中心</option>
+                                    </select>
+                                    <i class="fa fa-chevron-down absolute right-3 top-1/2 transform -translate-y-1/2 text-xs pointer-events-none"></i>
+                                </div>
+                                
+                                <!-- 导出按钮 -->
+                                <button class="bg-dark-200/30 hover:bg-dark-200/50 text-white px-3 py-1 rounded-md text-sm transition-colors flex items-center">
+                                    <i class="fa fa-download mr-1.5"></i>导出
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- 数据概览卡片 -->
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
+                            <div class="bg-dark-100/30 border border-cyberpunk-blue/20 rounded-lg p-4 hover:border-primary/40 transition-colors">
+                                <div class="flex justify-between items-start mb-2">
+                                    <div>
+                                        <p class="text-xs text-dark-200">总能源产出</p>
+                                        <p class="text-2xl font-bold mt-1">864.5<span class="text-sm">GWh</span></p>
+                                    </div>
+                                    <div class="bg-primary/20 p-2 rounded-lg">
+                                        <i class="fa fa-bolt text-primary"></i>
+                                    </div>
+                                </div>
+                                <div class="flex items-center text-xs">
+                                    <div class="text-green-400 flex items-center mr-3">
+                                        <i class="fa fa-arrow-up mr-1"></i>8.2%
+                                    </div>
+                                    <span class="text-dark-200">较上周</span>
+                                </div>
+                            </div>
+                            
+                            <div class="bg-dark-100/30 border border-cyberpunk-blue/20 rounded-lg p-4 hover:border-primary/40 transition-colors">
+                                <div class="flex justify-between items-start mb-2">
+                                    <div>
+                                        <p class="text-xs text-dark-200">系统总效率</p>
+                                        <p class="text-2xl font-bold mt-1">89.7<span class="text-sm">%</span></p>
+                                    </div>
+                                    <div class="bg-cyberpunk-green/20 p-2 rounded-lg">
+                                        <i class="fa fa-tachometer text-cyberpunk-green"></i>
+                                    </div>
+                                </div>
+                                <div class="flex items-center text-xs">
+                                    <div class="text-green-400 flex items-center mr-3">
+                                        <i class="fa fa-arrow-up mr-1"></i>2.3%
+                                    </div>
+                                    <span class="text-dark-200">较上月</span>
+                                </div>
+                            </div>
+                            
+                            <div class="bg-dark-100/30 border border-cyberpunk-blue/20 rounded-lg p-4 hover:border-primary/40 transition-colors">
+                                <div class="flex justify-between items-start mb-2">
+                                    <div>
+                                        <p class="text-xs text-dark-200">碳减排量</p>
+                                        <p class="text-2xl font-bold mt-1">4.2<span class="text-sm">万吨</span></p>
+                                    </div>
+                                    <div class="bg-cyberpunk-blue/20 p-2 rounded-lg">
+                                        <i class="fa fa-leaf text-cyberpunk-blue"></i>
+                                    </div>
+                                </div>
+                                <div class="flex items-center text-xs">
+                                    <div class="text-green-400 flex items-center mr-3">
+                                        <i class="fa fa-arrow-up mr-1"></i>12.8%
+                                    </div>
+                                    <span class="text-dark-200">较同期</span>
+                                </div>
+                            </div>
+                            
+                            <div class="bg-dark-100/30 border border-cyberpunk-blue/20 rounded-lg p-4 hover:border-primary/40 transition-colors">
+                                <div class="flex justify-between items-start mb-2">
+                                    <div>
+                                        <p class="text-xs text-dark-200">经济效益</p>
+                                        <p class="text-2xl font-bold mt-1">¥128<span class="text-sm">万</span></p>
+                                    </div>
+                                    <div class="bg-secondary/20 p-2 rounded-lg">
+                                        <i class="fa fa-line-chart text-secondary"></i>
+                                    </div>
+                                </div>
+                                <div class="flex items-center text-xs">
+                                    <div class="text-green-400 flex items-center mr-3">
+                                        <i class="fa fa-arrow-up mr-1"></i>15.6%
+                                    </div>
+                                    <span class="text-dark-200">较上季度</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 主要图表区域 -->
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
+                            <!-- 能源产出趋势图 -->
+                            <div class="bg-dark-100/30 border border-cyberpunk-blue/20 rounded-lg p-4 hover:border-primary/40 transition-colors">
+                                <div class="flex justify-between items-center mb-4">
+                                    <div>
+                                        <h3 class="font-medium">能源产出趋势</h3>
+                                        <p class="text-xs text-dark-200 mt-1">过去24小时能源产出动态变化</p>
+                                    </div>
+                                    <div class="flex space-x-2">
+                                        <button class="text-xs px-2 py-1 bg-dark-100/50 rounded hover:bg-dark-100/80 transition-colors">
+                                            <i class="fa fa-ellipsis-v"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <!-- 图例 -->
+                                <div class="flex flex-wrap gap-4 mb-4">
+                                    <div class="flex items-center text-xs">
+                                        <div class="w-3 h-3 bg-primary rounded-full mr-1.5"></div>
+                                        <span>风电</span>
+                                    </div>
+                                    <div class="flex items-center text-xs">
+                                        <div class="w-3 h-3 bg-cyberpunk-blue rounded-full mr-1.5"></div>
+                                        <span>光伏</span>
+                                    </div>
+                                    <div class="flex items-center text-xs">
+                                        <div class="w-3 h-3 bg-cyberpunk-green rounded-full mr-1.5"></div>
+                                        <span>燃料电池</span>
+                                    </div>
+                                    <div class="flex items-center text-xs">
+                                        <div class="w-3 h-3 bg-secondary rounded-full mr-1.5"></div>
+                                        <span>天然气</span>
+                                    </div>
+                                </div>
+                                
+                                <div class="h-[320px] relative">
+                                    <canvas id="energy-output-chart"></canvas>
+                                    <!-- 图表加载状态 -->
+                                    <div class="absolute inset-0 flex items-center justify-center bg-dark-100/80 opacity-0 pointer-events-none transition-opacity">
+                                        <div class="text-center">
+                                            <div class="inline-block w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin mb-2"></div>
+                                            <p class="text-xs text-dark-200">加载数据中...</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- 碳排放量对比图 -->
+                            <div class="bg-dark-100/30 border border-cyberpunk-blue/20 rounded-lg p-4 hover:border-primary/40 transition-colors">
+                                <div class="flex justify-between items-center mb-4">
+                                    <div>
+                                        <h3 class="font-medium">碳排放量对比</h3>
+                                        <p class="text-xs text-dark-200 mt-1">传统方案与优化方案碳排放对比</p>
+                                    </div>
+                                    <div class="flex space-x-2">
+                                        <button class="text-xs px-2 py-1 bg-dark-100/50 rounded hover:bg-dark-100/80 transition-colors">
+                                            <i class="fa fa-ellipsis-v"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <!-- 图例 -->
+                                <div class="flex flex-wrap gap-4 mb-4">
+                                    <div class="flex items-center text-xs">
+                                        <div class="w-3 h-3 bg-red-400/50 rounded-full mr-1.5"></div>
+                                        <span>传统方案</span>
+                                    </div>
+                                    <div class="flex items-center text-xs">
+                                        <div class="w-3 h-3 bg-cyberpunk-blue/50 rounded-full mr-1.5"></div>
+                                        <span>优化方案</span>
+                                    </div>
+                                    <div class="flex items-center text-xs">
+                                        <div class="w-3 h-3 bg-green-400 rounded-full mr-1.5"></div>
+                                        <span>减排量</span>
+                                    </div>
+                                </div>
+                                
+                                <div class="h-[320px] relative">
+                                    <canvas id="carbon-emission-chart"></canvas>
+                                    <!-- 图表加载状态 -->
+                                    <div class="absolute inset-0 flex items-center justify-center bg-dark-100/80 opacity-0 pointer-events-none transition-opacity">
+                                        <div class="text-center">
+                                            <div class="inline-block w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin mb-2"></div>
+                                            <p class="text-xs text-dark-200">加载数据中...</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 次要图表区域 -->
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                            <!-- 能效分布图 -->
+                            <div class="bg-dark-100/30 border border-cyberpunk-blue/20 rounded-lg p-4 hover:border-primary/40 transition-colors">
+                                <h3 class="font-medium text-sm mb-3">能效分布</h3>
+                                <div class="h-[200px]">
+                                    <canvas id="efficiency-distribution-chart"></canvas>
+                                </div>
+                            </div>
+                            
+                            <!-- 能源结构占比 -->
+                            <div class="bg-dark-100/30 border border-cyberpunk-blue/20 rounded-lg p-4 hover:border-primary/40 transition-colors">
+                                <h3 class="font-medium text-sm mb-3">能源结构占比</h3>
+                                <div class="h-[200px]">
+                                    <canvas id="energy-structure-chart"></canvas>
+                                </div>
+                            </div>
+                            
+                            <!-- 系统可靠性分析 -->
+                            <div class="bg-dark-100/30 border border-cyberpunk-blue/20 rounded-lg p-4 hover:border-primary/40 transition-colors">
+                                <h3 class="font-medium text-sm mb-3">系统可靠性</h3>
+                                <div class="h-[200px]">
+                                    <canvas id="reliability-chart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 右侧：控制面板和机器学习模型 -->
+                <div class="space-y-6">
+                    <!-- 调控策略按钮和选择 -->
+                    <div class="bg-dark-100/50 border border-cyberpunk-blue/30 rounded-lg p-4 glass-effect">
+                        <h2 class="text-xl font-bold mb-4 text-shadow-neon">调控策略</h2>
+                        
+                        <!-- 策略状态指示器 -->
+                        <div class="bg-dark-100/30 border border-cyberpunk-blue/20 rounded-lg p-3 mb-5">
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm font-medium">当前执行策略</span>
+                                <span class="text-xs px-3 py-1 rounded-full bg-primary/20 text-primary">平衡优化模式</span>
+                            </div>
+                            <div class="mt-2 grid grid-cols-3 gap-2 text-xs">
+                                <div class="flex items-center">
+                                    <div class="w-2 h-2 bg-green-400 rounded-full mr-1.5"></div>
+                                    <span>运行中</span>
+                                </div>
+                                <div class="flex items-center">
+                                    <div class="w-2 h-2 bg-cyberpunk-blue rounded-full mr-1.5"></div>
+                                    <span>上次更新: 10分钟前</span>
+                                </div>
+                                <div class="flex items-center">
+                                    <div class="w-2 h-2 bg-secondary rounded-full mr-1.5"></div>
+                                    <span>AI参与度: 85%</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 策略分类选项卡 -->
+                        <div class="flex border-b border-cyberpunk-blue/20 mb-4 overflow-x-auto scrollbar-hide">
+                            <button class="px-4 py-2 text-sm font-medium text-primary border-b-2 border-primary">基础策略</button>
+                            <button class="px-4 py-2 text-sm font-medium text-dark-200 hover:text-white">高级配置</button>
+                            <button class="px-4 py-2 text-sm font-medium text-dark-200 hover:text-white">历史策略</button>
+                        </div>
+                        
+                        <!-- 基础策略选项 -->
+                        <div class="space-y-4">
+                            <div class="flex items-center justify-between bg-dark-100/20 p-3 rounded-lg">
+                                <div>
+                                    <div class="font-medium">储气库压力优化</div>
+                                    <div class="text-xs text-dark-200">优化储气库压力，提高存储效率</div>
+                                </div>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" value="" class="sr-only peer" checked>
+                                    <div class="w-11 h-6 bg-dark-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                                </label>
+                            </div>
+                            
+                            <div class="flex items-center justify-between bg-dark-100/20 p-3 rounded-lg">
+                                <div>
+                                    <div class="font-medium">风光互补调度</div>
+                                    <div class="text-xs text-dark-200">平衡风电与光电输出，提高稳定性</div>
+                                </div>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" value="" class="sr-only peer" checked>
+                                    <div class="w-11 h-6 bg-dark-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                                </label>
+                            </div>
+                            
+                            <div class="flex items-center justify-between bg-dark-100/20 p-3 rounded-lg">
+                                <div>
+                                    <div class="font-medium">余热回收利用</div>
+                                    <div class="text-xs text-dark-200">回收压缩机余热用于数据中心供暖</div>
+                                </div>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" value="" class="sr-only peer">
+                                    <div class="w-11 h-6 bg-dark-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                                </label>
+                            </div>
+                            
+                            <div class="flex items-center justify-between bg-dark-100/20 p-3 rounded-lg">
+                                <div>
+                                    <div class="font-medium">AI动态预测</div>
+                                    <div class="text-xs text-dark-200">基于机器学习的负载预测和调度</div>
+                                </div>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" value="" class="sr-only peer" checked>
+                                    <div class="w-11 h-6 bg-dark-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                                </label>
+                            </div>
+                            
+                            <div class="flex items-center justify-between bg-dark-100/20 p-3 rounded-lg">
+                                <div>
+                                    <div class="font-medium">碳捕集与利用</div>
+                                    <div class="text-xs text-dark-200">捕获并利用系统碳排放</div>
+                                </div>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" value="" class="sr-only peer">
+                                    <div class="w-11 h-6 bg-dark-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                                </label>
+                            </div>
+                            
+                            <div class="flex items-center justify-between bg-dark-100/20 p-3 rounded-lg">
+                                <div>
+                                    <div class="font-medium">数据中心能耗优化</div>
+                                    <div class="text-xs text-dark-200">优化数据中心PUE值和制冷效率</div>
+                                </div>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" value="" class="sr-only peer" checked>
+                                    <div class="w-11 h-6 bg-dark-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <!-- 策略模式选择 -->
+                        <div class="mt-6">
+                            <h3 class="font-medium text-sm text-dark-200 mb-3">策略优化方向</h3>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div class="bg-dark-100/30 border border-cyberpunk-blue/20 rounded-lg p-3 cursor-pointer hover:bg-dark-100/50 transition-colors">
+                                    <div class="flex items-center">
+                                        <div class="w-2 h-2 bg-primary rounded-full mr-2"></div>
+                                        <div class="font-medium">效率优先模式</div>
+                                    </div>
+                                    <div class="text-xs text-dark-200 mt-1">最大化系统整体效率</div>
+                                </div>
+                                
+                                <div class="bg-dark-100/30 border border-cyberpunk-blue/20 rounded-lg p-3 cursor-pointer hover:bg-dark-100/50 transition-colors">
+                                    <div class="flex items-center">
+                                        <div class="w-2 h-2 bg-cyberpunk-green rounded-full mr-2"></div>
+                                        <div class="font-medium">经济优先模式</div>
+                                    </div>
+                                    <div class="text-xs text-dark-200 mt-1">最小化运行成本</div>
+                                </div>
+                                
+                                <div class="bg-dark-100/30 border border-cyberpunk-blue/20 rounded-lg p-3 cursor-pointer hover:bg-dark-100/50 transition-colors">
+                                    <div class="flex items-center">
+                                        <div class="w-2 h-2 bg-cyberpunk-blue rounded-full mr-2"></div>
+                                        <div class="font-medium">低碳优先模式</div>
+                                    </div>
+                                    <div class="text-xs text-dark-200 mt-1">最小化碳排放强度</div>
+                                </div>
+                                
+                                <div class="bg-dark-100/30 border border-primary/30 rounded-lg p-3 cursor-pointer border-primary/50 hover:bg-dark-100/50 transition-colors relative">
+                                    <div class="absolute -top-1 -right-1 bg-primary text-xs text-white px-1.5 py-0.5 rounded">当前</div>
+                                    <div class="flex items-center">
+                                        <div class="w-2 h-2 bg-secondary rounded-full mr-2"></div>
+                                        <div class="font-medium">平衡优化模式</div>
+                                    </div>
+                                    <div class="text-xs text-dark-200 mt-1">平衡效率、成本和碳排放</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 策略执行控制 -->
+                        <div class="mt-6 flex flex-col space-y-3">
+                            <button class="flex-1 bg-primary hover:bg-primary/90 text-white font-medium py-3 px-4 rounded-lg transition-all hover:scale-[1.02] flex items-center justify-center">
+                                <i class="fa fa-play-circle mr-2"></i> 立即执行优化策略
+                            </button>
+                            
+                            <div class="grid grid-cols-2 gap-3">
+                                <button class="bg-dark-200/30 hover:bg-dark-200/50 text-white font-medium py-2 px-4 rounded-lg transition-colors flex items-center justify-center">
+                                    <i class="fa fa-save mr-1.5"></i> 保存策略
+                                </button>
+                                
+                                <button class="bg-dark-200/30 hover:bg-dark-200/50 text-white font-medium py-2 px-4 rounded-lg transition-colors flex items-center justify-center">
+                                    <i class="fa fa-refresh mr-1.5"></i> 重置配置
+                                </button>
+                            </div>
+                            
+                            <button class="bg-transparent hover:bg-dark-100/30 text-primary font-medium py-2 px-4 rounded-lg transition-colors flex items-center justify-center border border-primary/30">
+                                <i class="fa fa-sliders mr-1.5"></i> 高级参数设置
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- 机器学习模型展示 -->
+                    <div class="bg-dark-100/50 border border-cyberpunk-blue/30 rounded-lg p-4 glass-effect">
+                        <div class="flex justify-between items-center mb-4">
+                            <h2 class="text-xl font-bold text-shadow-neon">机器学习模型</h2>
+                            <div class="flex items-center text-xs">
+                                <div class="w-2 h-2 bg-green-400 rounded-full mr-1.5"></div>
+                                <span class="text-dark-200">所有模型运行正常</span>
+                                <span class="mx-2 text-dark-200">|</span>
+                                <button class="text-primary hover:text-primary/80 transition-colors">
+                                    <i class="fa fa-refresh mr-1"></i>刷新
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- 模型概览卡片 -->
+                        <div class="grid grid-cols-3 gap-3 mb-5">
+                            <div class="bg-dark-100/20 border border-cyberpunk-blue/20 rounded-lg p-3">
+                                <div class="text-xs text-dark-200 mb-1">总模型数</div>
+                                <div class="text-2xl font-bold">7</div>
+                            </div>
+                            <div class="bg-dark-100/20 border border-cyberpunk-blue/20 rounded-lg p-3">
+                                <div class="text-xs text-dark-200 mb-1">平均准确率</div>
+                                <div class="text-2xl font-bold">92.6%</div>
+                            </div>
+                            <div class="bg-dark-100/20 border border-cyberpunk-blue/20 rounded-lg p-3">
+                                <div class="text-xs text-dark-200 mb-1">实时推理延迟</div>
+                                <div class="text-2xl font-bold">12ms</div>
+                            </div>
+                        </div>
+                        
+                        <!-- 模型列表 -->
+                        <div class="space-y-4">
+                            <!-- 能源负荷预测模型 -->
+                            <div class="bg-dark-100/30 border border-cyberpunk-blue/20 rounded-lg p-4 hover:border-primary/40 transition-colors relative overflow-hidden group">
+                                <!-- 装饰性元素 -->
+                                <div class="absolute top-0 right-0 w-20 h-20 bg-primary/5 rounded-full transform translate-x-10 -translate-y-10 group-hover:bg-primary/10 transition-colors"></div>
+                                
+                                <div class="flex justify-between items-center">
+                                    <div class="flex items-center">
+                                        <div class="bg-primary/20 p-2 rounded-lg mr-3">
+                                            <i class="fa fa-area-chart text-primary"></i>
+                                        </div>
+                                        <div>
+                                            <h3 class="font-medium">能源负荷预测模型</h3>
+                                            <p class="text-xs text-dark-200 mt-0.5">基于LSTM网络的时序预测模型</p>
+                                        </div>
+                                    </div>
+                                    <span class="text-xs bg-primary/20 text-primary px-2 py-1 rounded-full">92.8% 准确率</span>
+                                </div>
+                                
+                                <div class="mt-3 grid grid-cols-3 gap-3 text-xs">
+                                    <div>
+                                        <div class="text-dark-200">预测周期</div>
+                                        <div class="font-medium mt-0.5">24小时</div>
+                                    </div>
+                                    <div>
+                                        <div class="text-dark-200">历史准确率</div>
+                                        <div class="font-medium mt-0.5">94.2%</div>
+                                    </div>
+                                    <div>
+                                        <div class="text-dark-200">更新频率</div>
+                                        <div class="font-medium mt-0.5">每30分钟</div>
+                                    </div>
+                                </div>
+                                
+                                <div class="mt-3 h-[140px] bg-dark-100/30 rounded-lg p-2">
+                                    <canvas id="ml-forecast-chart"></canvas>
+                                </div>
+                                
+                                <div class="mt-3 flex justify-between items-center">
+                                    <div class="flex space-x-2">
+                                        <button class="text-xs px-2 py-1 bg-dark-200/30 hover:bg-dark-200/50 rounded transition-colors">
+                                            <i class="fa fa-bar-chart mr-1"></i>详细分析
+                                        </button>
+                                        <button class="text-xs px-2 py-1 bg-dark-200/30 hover:bg-dark-200/50 rounded transition-colors">
+                                            <i class="fa fa-line-chart mr-1"></i>趋势图
+                                        </button>
+                                    </div>
+                                    <button class="text-xs text-primary hover:text-primary/80 transition-colors">
+                                        模型参数 <i class="fa fa-chevron-right ml-1"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <!-- 故障诊断模型 -->
+                            <div class="bg-dark-100/30 border border-cyberpunk-blue/20 rounded-lg p-4 hover:border-primary/40 transition-colors relative overflow-hidden group">
+                                <div class="absolute top-0 right-0 w-20 h-20 bg-cyberpunk-green/5 rounded-full transform translate-x-10 -translate-y-10 group-hover:bg-cyberpunk-green/10 transition-colors"></div>
+                                
+                                <div class="flex justify-between items-center">
+                                    <div class="flex items-center">
+                                        <div class="bg-cyberpunk-green/20 p-2 rounded-lg mr-3">
+                                            <i class="fa fa-shield text-cyberpunk-green"></i>
+                                        </div>
+                                        <div>
+                                            <h3 class="font-medium">故障诊断模型</h3>
+                                            <p class="text-xs text-dark-200 mt-0.5">基于随机森林的多分类模型</p>
+                                        </div>
+                                    </div>
+                                    <span class="text-xs bg-cyberpunk-green/20 text-cyberpunk-green px-2 py-1 rounded-full">95.3% 准确率</span>
+                                </div>
+                                
+                                <div class="mt-3 grid grid-cols-3 gap-3 text-xs">
+                                    <div>
+                                        <div class="text-dark-200">检测部件</div>
+                                        <div class="font-medium mt-0.5">12个关键部件</div>
+                                    </div>
+                                    <div>
+                                        <div class="text-dark-200">误报率</div>
+                                        <div class="font-medium mt-0.5">1.2%</div>
+                                    </div>
+                                    <div>
+                                        <div class="text-dark-200">预测提前量</div>
+                                        <div class="font-medium mt-0.5">72小时</div>
+                                    </div>
+                                </div>
+                                
+                                <div class="mt-3 bg-dark-100/30 rounded-lg p-3">
+                                    <div class="flex justify-between items-center mb-2">
+                                        <span class="text-sm font-medium">系统健康状态</span>
+                                        <span class="text-xs bg-green-400/20 text-green-400 px-2 py-0.5 rounded-full">正常</span>
+                                    </div>
+                                    
+                                    <div class="space-y-2">
+                                        <div>
+                                            <div class="flex justify-between text-xs mb-1">
+                                                <span>压缩机健康度</span>
+                                                <span>98.7%</span>
+                                            </div>
+                                            <div class="w-full bg-dark-100 h-1.5 rounded-full">
+                                                <div class="bg-green-400 h-1.5 rounded-full" style="width: 98.7%"></div>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <div class="flex justify-between text-xs mb-1">
+                                                <span>燃料电池健康度</span>
+                                                <span>96.3%</span>
+                                            </div>
+                                            <div class="w-full bg-dark-100 h-1.5 rounded-full">
+                                                <div class="bg-green-400 h-1.5 rounded-full" style="width: 96.3%"></div>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <div class="flex justify-between text-xs mb-1">
+                                                <span>储能系统健康度</span>
+                                                <span>97.5%</span>
+                                            </div>
+                                            <div class="w-full bg-dark-100 h-1.5 rounded-full">
+                                                <div class="bg-green-400 h-1.5 rounded-full" style="width: 97.5%"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="mt-3 flex justify-between items-center">
+                                    <div class="flex space-x-2">
+                                        <button class="text-xs px-2 py-1 bg-dark-200/30 hover:bg-dark-200/50 rounded transition-colors">
+                                            <i class="fa fa-list-ul mr-1"></i>故障类型
+                                        </button>
+                                        <button class="text-xs px-2 py-1 bg-dark-200/30 hover:bg-dark-200/50 rounded transition-colors">
+                                            <i class="fa fa-history mr-1"></i>历史记录
+                                        </button>
+                                    </div>
+                                    <button class="text-xs text-primary hover:text-primary/80 transition-colors">
+                                        诊断报告 <i class="fa fa-chevron-right ml-1"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <!-- 碳足迹优化模型 -->
+                            <div class="bg-dark-100/30 border border-cyberpunk-blue/20 rounded-lg p-4 hover:border-primary/40 transition-colors relative overflow-hidden group">
+                                <div class="absolute top-0 right-0 w-20 h-20 bg-cyberpunk-blue/5 rounded-full transform translate-x-10 -translate-y-10 group-hover:bg-cyberpunk-blue/10 transition-colors"></div>
+                                
+                                <div class="flex justify-between items-center">
+                                    <div class="flex items-center">
+                                        <div class="bg-cyberpunk-blue/20 p-2 rounded-lg mr-3">
+                                            <i class="fa fa-leaf text-cyberpunk-blue"></i>
+                                        </div>
+                                        <div>
+                                            <h3 class="font-medium">碳足迹优化模型</h3>
+                                            <p class="text-xs text-dark-200 mt-0.5">基于强化学习的优化算法</p>
+                                        </div>
+                                    </div>
+                                    <span class="text-xs bg-cyberpunk-blue/20 text-cyberpunk-blue px-2 py-1 rounded-full">89.7% 准确率</span>
+                                </div>
+                                
+                                <div class="mt-3 grid grid-cols-3 gap-3 text-xs">
+                                    <div>
+                                        <div class="text-dark-200">碳减排潜力</div>
+                                        <div class="font-medium mt-0.5">15.3%</div>
+                                    </div>
+                                    <div>
+                                        <div class="text-dark-200">年度减排量</div>
+                                        <div class="font-medium mt-0.5">2.8万吨 CO₂</div>
+                                    </div>
+                                    <div>
+                                        <div class="text-dark-200">优化周期</div>
+                                        <div class="font-medium mt-0.5">每6小时</div>
+                                    </div>
+                                </div>
+                                
+                                <div class="mt-3 bg-dark-100/30 rounded-lg p-3">
+                                    <div class="flex justify-between items-center mb-3">
+                                        <span class="text-sm font-medium">碳优化策略效果</span>
+                                        <span class="text-xs bg-cyberpunk-blue/20 text-cyberpunk-blue px-2 py-0.5 rounded-full">实时优化中</span>
+                                    </div>
+                                    
+                                    <div class="space-y-3">
+                                        <div>
+                                            <div class="flex justify-between text-xs mb-1">
+                                                <span>能源结构优化</span>
+                                                <span class="text-cyberpunk-blue">6.8%</span>
+                                            </div>
+                                            <div class="w-full bg-dark-100 h-2 rounded-full">
+                                                <div class="bg-cyberpunk-blue h-2 rounded-full" style="width: 68%"></div>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <div class="flex justify-between text-xs mb-1">
+                                                <span>设备运行优化</span>
+                                                <span class="text-cyberpunk-blue">5.2%</span>
+                                            </div>
+                                            <div class="w-full bg-dark-100 h-2 rounded-full">
+                                                <div class="bg-cyberpunk-blue h-2 rounded-full" style="width: 52%"></div>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <div class="flex justify-between text-xs mb-1">
+                                                <span>碳捕集效率</span>
+                                                <span class="text-cyberpunk-blue">3.3%</span>
+                                            </div>
+                                            <div class="w-full bg-dark-100 h-2 rounded-full">
+                                                <div class="bg-cyberpunk-blue h-2 rounded-full" style="width: 33%"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="mt-3 flex justify-between items-center">
+                                    <div class="flex space-x-2">
+                                        <button class="text-xs px-2 py-1 bg-dark-200/30 hover:bg-dark-200/50 rounded transition-colors">
+                                            <i class="fa fa-trophy mr-1"></i>减排目标
+                                        </button>
+                                        <button class="text-xs px-2 py-1 bg-dark-200/30 hover:bg-dark-200/50 rounded transition-colors">
+                                            <i class="fa fa-calendar mr-1"></i>趋势分析
+                                        </button>
+                                    </div>
+                                    <button class="text-xs text-primary hover:text-primary/80 transition-colors">
+                                        碳足迹报告 <i class="fa fa-chevron-right ml-1"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 模型管理按钮 -->
+                        <div class="mt-4 flex justify-center">
+                            <button class="text-sm px-4 py-2 bg-dark-200/30 hover:bg-dark-200/50 rounded-lg transition-colors border border-cyberpunk-blue/20">
+                                <i class="fa fa-cogs mr-2"></i>管理所有模型
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- AI技术集成展示 -->
+                    <div class="bg-dark-100/50 border border-cyberpunk-blue/30 rounded-lg p-4 glass-effect relative overflow-hidden group">
+                        <!-- 装饰性背景元素 -->
+                        <div class="absolute top-0 right-0 w-40 h-40 bg-primary/5 rounded-full transform translate-x-20 -translate-y-20 transition-all group-hover:bg-primary/10 group-hover:scale-150 duration-700"></div>
+                        <div class="absolute bottom-0 left-0 w-60 h-60 bg-cyberpunk-blue/5 rounded-full transform -translate-x-30 translate-y-30 transition-all group-hover:bg-cyberpunk-blue/10 group-hover:scale-150 duration-700"></div>
+                        
+                        <div class="relative">
+                            <!-- 标题和状态 -->
+                            <div class="flex justify-between items-center mb-6">
+                                <h2 class="text-xl font-bold text-shadow-neon">AI技术集成</h2>
+                                <div class="flex items-center text-xs">
+                                    <div class="w-2 h-2 bg-green-400 rounded-full mr-1.5 animate-pulse"></div>
+                                    <span class="text-green-400">AI系统运行中</span>
+                                </div>
+                            </div>
+                            
+                            <!-- AI系统状态概览 -->
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                                <div class="bg-dark-100/30 border border-cyberpunk-blue/20 rounded-lg p-4 hover:border-primary/40 transition-colors">
+                                    <div class="flex justify-between items-start">
+                                        <div>
+                                            <p class="text-xs text-dark-200">AI决策频率</p>
+                                            <p class="text-2xl font-bold mt-1">5<span class="text-xs">次/秒</span></p>
+                                        </div>
+                                        <div class="bg-primary/20 p-2 rounded-lg">
+                                            <i class="fa fa-bolt text-primary"></i>
+                                        </div>
+                                    </div>
+                                    <div class="mt-2">
+                                        <div class="text-xs text-dark-200 mb-1">系统负载</div>
+                                        <div class="w-full bg-dark-100 h-1.5 rounded-full">
+                                            <div class="bg-primary h-1.5 rounded-full" style="width: 68%"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="bg-dark-100/30 border border-cyberpunk-blue/20 rounded-lg p-4 hover:border-cyberpunk-green/40 transition-colors">
+                                    <div class="flex justify-between items-start">
+                                        <div>
+                                            <p class="text-xs text-dark-200">资源优化率</p>
+                                            <p class="text-2xl font-bold mt-1">27.8<span class="text-xs">%</span></p>
+                                        </div>
+                                        <div class="bg-cyberpunk-green/20 p-2 rounded-lg">
+                                            <i class="fa fa-tachometer text-cyberpunk-green"></i>
+                                        </div>
+                                    </div>
+                                    <div class="mt-2">
+                                        <div class="text-xs text-dark-200 mb-1">较基准提升</div>
+                                        <div class="flex items-center text-green-400 text-xs">
+                                            <i class="fa fa-arrow-up mr-1"></i>12.5%
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="bg-dark-100/30 border border-cyberpunk-blue/20 rounded-lg p-4 hover:border-cyberpunk-blue/40 transition-colors">
+                                    <div class="flex justify-between items-start">
+                                        <div>
+                                            <p class="text-xs text-dark-200">能耗降低</p>
+                                            <p class="text-2xl font-bold mt-1">18.3<span class="text-xs">%</span></p>
+                                        </div>
+                                        <div class="bg-cyberpunk-blue/20 p-2 rounded-lg">
+                                            <i class="fa fa-leaf text-cyberpunk-blue"></i>
+                                        </div>
+                                    </div>
+                                    <div class="mt-2">
+                                        <div class="text-xs text-dark-200 mb-1">年度节省</div>
+                                        <div class="text-xs font-medium">¥426,500</div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- 技术集成卡片 -->
+                            <div class="space-y-4 mb-5">
+                                <!-- 智能调度算法 -->
+                                <div class="bg-dark-100/30 border border-cyberpunk-blue/20 rounded-lg p-4 hover:border-primary/40 transition-all hover:shadow-lg hover:shadow-primary/10">
+                                    <div class="flex items-start space-x-4">
+                                        <div class="bg-primary/20 p-2 rounded-lg flex-shrink-0">
+                                            <i class="fa fa-microchip text-xl text-primary"></i>
+                                        </div>
+                                        <div class="flex-grow">
+                                            <div class="flex justify-between items-center mb-2">
+                                                <h3 class="font-medium">智能调度算法</h3>
+                                                <span class="text-xs bg-primary/20 text-primary px-2 py-0.5 rounded-full">实时运行</span>
+                                            </div>
+                                            <p class="text-xs text-dark-200 mb-3">基于多目标强化学习的能源实时优化分配系统，平衡效率、成本和碳排放</p>
+                                            
+                                            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                                                <div>
+                                                    <div class="text-dark-200">决策延迟</div>
+                                                    <div class="font-medium mt-0.5">12ms</div>
+                                                </div>
+                                                <div>
+                                                    <div class="text-dark-200">优化效率</div>
+                                                    <div class="font-medium mt-0.5">94.2%</div>
+                                                </div>
+                                                <div>
+                                                    <div class="text-dark-200">覆盖设备</div>
+                                                    <div class="font-medium mt-0.5">42台</div>
+                                                </div>
+                                                <div>
+                                                    <div class="text-dark-200">最近更新</div>
+                                                    <div class="font-medium mt-0.5">10分钟前</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- 预测性维护 -->
+                                <div class="bg-dark-100/30 border border-cyberpunk-blue/20 rounded-lg p-4 hover:border-cyberpunk-purple/40 transition-all hover:shadow-lg hover:shadow-cyberpunk-purple/10">
+                                    <div class="flex items-start space-x-4">
+                                        <div class="bg-cyberpunk-purple/20 p-2 rounded-lg flex-shrink-0">
+                                            <i class="fa fa-shield text-xl text-cyberpunk-purple"></i>
+                                        </div>
+                                        <div class="flex-grow">
+                                            <div class="flex justify-between items-center mb-2">
+                                                <h3 class="font-medium">预测性维护</h3>
+                                                <span class="text-xs bg-green-400/20 text-green-400 px-2 py-0.5 rounded-full">正常</span>
+                                            </div>
+                                            <p class="text-xs text-dark-200 mb-3">基于机器学习的设备健康状态监测与故障预警系统，支持多源数据融合分析</p>
+                                            
+                                            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                                                <div>
+                                                    <div class="text-dark-200">预警提前量</div>
+                                                    <div class="font-medium mt-0.5">72小时</div>
+                                                </div>
+                                                <div>
+                                                    <div class="text-dark-200">预测准确率</div>
+                                                    <div class="font-medium mt-0.5">96.8%</div>
+                                                </div>
+                                                <div>
+                                                    <div class="text-dark-200">监测部件</div>
+                                                    <div class="font-medium mt-0.5">12个关键部件</div>
+                                                </div>
+                                                <div>
+                                                    <div class="text-dark-200">累计预警</div>
+                                                    <div class="font-medium mt-0.5">32次</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- 自适应学习 -->
+                                <div class="bg-dark-100/30 border border-cyberpunk-blue/20 rounded-lg p-4 hover:border-cyberpunk-green/40 transition-all hover:shadow-lg hover:shadow-cyberpunk-green/10">
+                                    <div class="flex items-start space-x-4">
+                                        <div class="bg-cyberpunk-green/20 p-2 rounded-lg flex-shrink-0">
+                                            <i class="fa fa-brain text-xl text-cyberpunk-green"></i>
+                                        </div>
+                                        <div class="flex-grow">
+                                            <div class="flex justify-between items-center mb-2">
+                                                <h3 class="font-medium">自适应学习</h3>
+                                                <span class="text-xs bg-cyberpunk-green/20 text-cyberpunk-green px-2 py-0.5 rounded-full">学习中</span>
+                                            </div>
+                                            <p class="text-xs text-dark-200 mb-3">基于在线学习的模型自适应优化系统，持续提升预测准确率和优化效果</p>
+                                            
+                                            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                                                <div>
+                                                    <div class="text-dark-200">学习频率</div>
+                                                    <div class="font-medium mt-0.5">每8小时</div>
+                                                </div>
+                                                <div>
+                                                    <div class="text-dark-200">模型更新</div>
+                                                    <div class="font-medium mt-0.5">56次</div>
+                                                </div>
+                                                <div>
+                                                    <div class="text-dark-200">准确率提升</div>
+                                                    <div class="font-medium mt-0.5">+7.3%</div>
+                                                </div>
+                                                <div>
+                                                    <div class="text-dark-200">训练数据</div>
+                                                    <div class="font-medium mt-0.5">1.2TB</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- 智能场景感知 -->
+                                <div class="bg-dark-100/30 border border-cyberpunk-blue/20 rounded-lg p-4 hover:border-cyberpunk-blue/40 transition-all hover:shadow-lg hover:shadow-cyberpunk-blue/10">
+                                    <div class="flex items-start space-x-4">
+                                        <div class="bg-cyberpunk-blue/20 p-2 rounded-lg flex-shrink-0">
+                                            <i class="fa fa-eye text-xl text-cyberpunk-blue"></i>
+                                        </div>
+                                        <div class="flex-grow">
+                                            <div class="flex justify-between items-center mb-2">
+                                                <h3 class="font-medium">智能场景感知</h3>
+                                                <span class="text-xs bg-cyberpunk-blue/20 text-cyberpunk-blue px-2 py-0.5 rounded-full">在线</span>
+                                            </div>
+                                            <p class="text-xs text-dark-200 mb-3">基于多源数据的场景识别和预测系统，自动调整运行策略以应对不同工况</p>
+                                            
+                                            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                                                <div>
+                                                    <div class="text-dark-200">场景识别率</div>
+                                                    <div class="font-medium mt-0.5">92.5%</div>
+                                                </div>
+                                                <div>
+                                                    <div class="text-dark-200">覆盖场景</div>
+                                                    <div class="font-medium mt-0.5">16种</div>
+                                                </div>
+                                                <div>
+                                                    <div class="text-dark-200">响应时间</div>
+                                                    <div class="font-medium mt-0.5">300ms</div>
+                                                </div>
+                                                <div>
+                                                    <div class="text-dark-200">优化效果</div>
+                                                    <div class="font-medium mt-0.5">+15.2%</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- 操作按钮区域 -->
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                <button class="bg-primary hover:bg-primary/90 text-white font-medium py-3 px-4 rounded-lg transition-all hover:scale-[1.02] flex items-center justify-center">
+                                    <i class="fa fa-cogs mr-2"></i> AI参数配置
+                                </button>
+                                <button class="bg-dark-200/30 hover:bg-dark-200/50 text-white font-medium py-3 px-4 rounded-lg transition-colors flex items-center justify-center">
+                                    <i class="fa fa-bar-chart mr-2"></i> 性能分析报告
+                                </button>
+                                <button class="bg-dark-200/30 hover:bg-dark-200/50 text-white font-medium py-3 px-4 rounded-lg transition-colors flex items-center justify-center">
+                                    <i class="fa fa-history mr-2"></i> 历史决策记录
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- 页脚 -->
+        <footer class="bg-dark-100/80 border-t border-cyberpunk-blue/30 py-4">
+            <div class="container mx-auto px-4">
+                <div class="flex flex-col md:flex-row justify-between items-center">
+                    <div class="text-dark-200 text-sm mb-4 md:mb-0">
+                        © 2024 零碳园区协控平台 - 综合能源管理系统
+                    </div>
+                    <div class="flex space-x-4">
+                        <a href="#" class="text-dark-200 hover:text-primary text-sm">系统文档</a>
+                        <a href="#" class="text-dark-200 hover:text-primary text-sm">帮助中心</a>
+                        <a href="#" class="text-dark-200 hover:text-primary text-sm">关于我们</a>
+                    </div>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <!-- JavaScript文件引入 -->
+    <script src="script.js"></script>
+</body>
+</html>
